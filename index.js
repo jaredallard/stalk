@@ -6,8 +6,10 @@
  * @license MIT
  **/
 
-const Twit  = require('twit');
-const async = require('async');
+const Twit   = require('twit');
+const async  = require('async');
+const moment = require('moment');
+const colors = require('colors');
 
 let error = (...args) => {
   args.unshift('E:');
@@ -16,7 +18,7 @@ let error = (...args) => {
 }
 
 let log = (...args) => {
-  args.unshift('[i]');
+  args.unshift(moment().format('LLLL').blue + ' [i] ');
   console.log.apply(console, args);
 }
 
@@ -36,6 +38,7 @@ let twit   = new Twit({
   access_token_secret: config.user.access_secret
 });
 
+let tweets = {};
 let user = null;
 let stlk = null;
 let init = Date.now();
@@ -71,6 +74,24 @@ async.waterfall([
       })
   },
 
+  // retreieve latest user tweets.
+  (next) => {
+    twit.get('statuses/user_timeline', {
+      screen_name: config.stalk.handle,
+      count: 200
+    })
+    .catch(next)
+    .then(res => {
+      res.data.forEach(tweet => {
+        tweets[tweet.id_str] = tweet;
+      })
+
+      log('inserted', res.data.length, 'tweets into local cache');
+
+      return next();
+    })
+  },
+
   // init streaming API.
   (next) => {
     let stream = twit.stream('statuses/filter', {
@@ -81,10 +102,22 @@ async.waterfall([
       if(tweet.user.id_str !== stlk.id_str) return;
 
       log(config.stalk.handle, 'tweeted', "'"+tweet.text+"'")
+
+      tweets[tweet.id_str] = tweet;
     });
 
     stream.on('delete', (tweet) => {
-      log(config.stalk.handle, 'deleted', "'"+tweet.text+"'");
+      tweet = tweet.delete.status;
+      let twt = null;
+
+      if(!tweets[tweet.id_str]) {
+        log('tweet hasn\'t been captured. ID:', tweet.id_str);
+        console.log('debug:', tweets[tweet.id_str]);
+        console.log('tweet object:', tweet);
+      } else {
+        twt = tweets[tweet.id_str].text;
+      }
+      log(config.stalk.handle, 'deleted', "'"+twt+"'");
     })
 
     stream.on('connected', () => {
@@ -94,6 +127,8 @@ async.waterfall([
     stream.on('disconnect', () => {
       log('stalking stopped, disconnected :(')
     })
+
+    return next();
   }
 ], err => {
   if(err) error(err);
