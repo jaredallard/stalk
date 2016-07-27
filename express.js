@@ -16,8 +16,6 @@ module.exports = (config, events, us, them) => {
 
   let app = express();
 
-  app.set('json spaces', 2);
-
   app.get('/api/tweets', (req, res) => {
     redis.getTweets((err, tweets) => {
       if(err) {

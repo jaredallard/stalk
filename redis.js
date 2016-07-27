@@ -17,7 +17,6 @@ module.exports = class AbstractedRedis {
   }
 
   getTweets(cb) {
-    log('redis: fetch tweets')
     this.redis.keys('*').then(keys => {
       let pipe = this.redis.pipeline();
       keys.forEach(key => {
