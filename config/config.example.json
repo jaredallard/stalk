@@ -9,5 +9,15 @@
   },
   "stalk": {
     "handle": "usertostalk"
+  },
+  "server": {
+    "http": {
+      "enabled": true,
+      "port": 7000
+    },
+    "websocket": {
+      "enabled": true,
+      "port": 3000
+    }
   }
 }

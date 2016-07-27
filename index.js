@@ -10,17 +10,13 @@ const Twit   = require('twit');
 const async  = require('async');
 const moment = require('moment');
 const colors = require('colors');
+const logger = require('./logger.js');
 
-let error = (...args) => {
-  args.unshift('E:');
-  console.error.apply(console, args);
-  process.exit(1);
-}
+const log   = logger.log;
+const error = logger.error;
 
-let log = (...args) => {
-  args.unshift(moment().format('LLLL').blue + ' [i] ');
-  console.log.apply(console, args);
-}
+const Redis = require('./redis.js');
+
 
 let config;
 
@@ -37,11 +33,14 @@ let twit   = new Twit({
   access_token:        config.user.access_token,
   access_token_secret: config.user.access_secret
 });
+let redis = new Redis();
 
-let tweets = {};
 let user = null;
 let stlk = null;
 let init = Date.now();
+
+const EventEmitter = require('events')
+const events = new EventEmitter();
 async.waterfall([
   /**
    * Get info about us.
@@ -74,7 +73,7 @@ async.waterfall([
       })
   },
 
-  // retreieve latest user tweets.
+  // retreieve latest user global.tweets.
   (next) => {
     twit.get('statuses/user_timeline', {
       screen_name: config.stalk.handle,
@@ -82,9 +81,7 @@ async.waterfall([
     })
     .catch(next)
     .then(res => {
-      res.data.forEach(tweet => {
-        tweets[tweet.id_str] = tweet;
-      })
+      redis.addTweets(res.data);
 
       log('inserted', res.data.length, 'tweets into local cache');
 
@@ -103,21 +100,24 @@ async.waterfall([
 
       log(config.stalk.handle, 'tweeted', "'"+tweet.text+"'")
 
-      tweets[tweet.id_str] = tweet;
+      redis.addTweet(tweet)
+
+      events.emit('tweet', tweet);
     });
 
     stream.on('delete', (tweet) => {
       tweet = tweet.delete.status;
-      let twt = null;
+      redis.markDeleted(tweet.id_str)
 
-      if(!tweets[tweet.id_str]) {
-        log('tweet hasn\'t been captured. ID:', tweet.id_str);
-        console.log('debug:', tweets[tweet.id_str]);
-        console.log('tweet object:', tweet);
-      } else {
-        twt = tweets[tweet.id_str].text;
-      }
-      log(config.stalk.handle, 'deleted', "'"+twt+"'");
+      redis.getTweet(tweet.id_str, (err, tweet) => {
+        if(err) {
+          log(config.stalk.handle, 'deleted a tweet we don\'t have archived.')
+          return false;
+        }
+
+        log(config.stalk.handle, 'deleted', "'"+tweet.text+"'");
+        events.emit('delete', tweet);
+      })
     })
 
     stream.on('connected', () => {
@@ -128,7 +128,12 @@ async.waterfall([
       log('stalking stopped, disconnected :(')
     })
 
-    return next();
+    return next(false);
+  },
+
+  // load addons
+  (next) => {
+    let http = require('./express.js')(config, events, user, stlk);
   }
 ], err => {
   if(err) error(err);
