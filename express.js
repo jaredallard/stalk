@@ -39,7 +39,7 @@ module.exports = (config, events, us, them) => {
     res.send(us);
   });
 
-  app.use('/', express.static('public'));
+  app.use('/', express.static(__dirname + '/public'));
 
 
 
