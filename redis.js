@@ -13,47 +13,43 @@ const error = logger.error;
 
 module.exports = class AbstractedRedis {
   constructor() {
-    this.redis = new Redis();
+    this.redis = new Redis({
+      parser: 'hiredis',
+      dropBufferSupport: true
+    });
   }
 
   getTweets(cb) {
-    this.redis.keys('*').then(keys => {
-      let pipe = this.redis.pipeline();
-      keys.forEach(key => {
-        pipe.get(key);
-      })
-
+    console.log(this.redis.get)
+    console.log(this.redis.mget);
+    let pipe   = this.redis.pipeline();
+    let stream = this.redis.scanStream();
+    stream.on('data', (resultKeys) => {
+      // `resultKeys` is an array of strings representing key names
+      for (var i = 0; i < resultKeys.length; i++) {
+        pipe.hgetall(resultKeys[i]);
+      }
+    });
+    stream.on('end', () => {
       pipe.exec((err, res) => {
         let parsed = [];
         res.forEach(tweetcontainer => {
           let stweet = tweetcontainer[1];
 
-          let tweet;
-          try {
-            tweet = JSON.parse(stweet);
-          } catch(e) {
-            return cb(e);
-          }
-
-          let state = 'intact';
-
-          if(tweet.deleted) {
-            state = 'deleted';
-          }
-
-          parsed.push({
-            text: tweet.text,
-            state: state,
-            date: tweet.created_at,
-            id: tweet.id_str
-          });
-
-          parsed.sort((a, b) => {
-            return new Date(b.date) - new Date(a.date);
-          })
+          parsed.push(stweet);
         });
 
-        return cb(false, parsed);
+        parsed.sort((a, b) => {
+          return new Date(b.date) - new Date(a.date);
+        })
+
+        let final = {
+          total: parsed.length,
+          count: 200,
+          tweets: parsed.slice(0, 200)
+        }
+
+        return cb(false, final);
       });
     });
   }
@@ -74,6 +70,9 @@ module.exports = class AbstractedRedis {
   }
 
   addTweet(tweet) {
+    if(typeof tweet !== 'object') return false;
+    if(tweet.deleted === undefined) tweet.deleted = false;
+
     let stweet;
     try {
       stweet = JSON.stringify(tweet);
@@ -93,20 +92,23 @@ module.exports = class AbstractedRedis {
       let stweet;
 
       if(typeof tweet !== 'object') return false;
-      if(tweet.deleted === undefined) tweet.deleted = false;
 
-      try {
-        stweet = JSON.stringify(tweet);
-      } catch(e) {
-        log('failed to parse tweet:', id);
-        return false;
+      let ftweet = {
+        text: tweet.text,
+        state: 'intact',
+        date: tweet.created_at,
+        id: tweet.id_str
       }
 
+
+
       let id = tweet.id_str;
-
-      log('inserted tweet', id, 'into redis');
-
-      pipe.set(id, stweet);
+      pipe.hmset("tweets:"+id,
+        "text", tweet.text,
+        "state", ftweet.state,
+        "date", ftweet.date,
+        "id", ftweet.id
+      );
     });
 
     pipe.exec(err => {
@@ -127,7 +129,7 @@ module.exports = class AbstractedRedis {
         return cb(e);
       }
 
-      tweet.deleted = true;
+      tweet.state = 'deleted';
 
       this.redis.set(id, JSON.stringify(tweet));
     })

@@ -75,18 +75,38 @@ async.waterfall([
 
   // retreieve latest user global.tweets.
   (next) => {
-    twit.get('statuses/user_timeline', {
-      screen_name: config.stalk.handle,
-      count: 200
-    })
-    .catch(next)
-    .then(res => {
-      redis.addTweets(res.data);
+    let count = 0;
+    let loop = (last_id, cb) => {
+      twit.get('statuses/user_timeline', {
+        screen_name: config.stalk.handle,
+        count: 200,
+        max_id: last_id
+      })
+      .catch(cb)
+      .then(res => {
+        redis.addTweets(res.data);
 
-      log('inserted', res.data.length, 'tweets into local cache');
+        count += res.data.length;
 
+        log('inserted', res.data.length, 'tweets into local cache');
+
+        return cb(false, res.data[res.data.length-1].id_str);
+      })
+    }
+
+    let it = (err, last_id) => {
+      if(err) return error(err);
+
+      log('last_id:', last_id);
+      if(count !== 1200) {
+        return loop(last_id, it);
+      }
+
+      log('inserted', count, 'total tweets into redis db.');
       return next();
-    })
+    }
+    loop(undefined, it)
+
   },
 
   // init streaming API.

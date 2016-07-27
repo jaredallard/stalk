@@ -20,24 +20,10 @@ module.exports = (config, tweets, events) => {
   };
 
   events.on('tweet', (tweet) => {
-    let ntweet = {
-      text: tweet.text,
-      id: tweet.id_str,
-      date: tweet.date,
-      state: 'intact'
-    }
-
-    server.broadcast(ntweet);
+    server.broadcast(tweet);
   })
 
   events.on('delete', (tweet) => {
-    let ntweet = {
-      text: tweet.text,
-      id: tweet.id_str
-      date: tweet.date,
-      state: 'deleted'
-    }
-
-    server.broadcast(ntweet);
+    server.broadcast(tweet);
   })
 }
