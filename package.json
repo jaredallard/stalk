@@ -1,0 +1,27 @@
+{
+  "name": "stalk",
+  "version": "1.0.0",
+  "description": "Stalks someones tweets and ignore deletion events.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaredallard/stalk.git"
+  },
+  "keywords": [
+    "stalk",
+    "twitter"
+  ],
+  "author": "Jared Allard <jaredallard@outlook.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jaredallard/stalk/issues"
+  },
+  "homepage": "https://github.com/jaredallard/stalk#readme",
+  "dependencies": {
+    "async": "^2.0.1",
+    "twit": "^2.2.4"
+  }
+}

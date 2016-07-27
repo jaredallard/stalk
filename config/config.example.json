@@ -1,0 +1,13 @@
+{
+  "app": {
+    "consumer_key":    "",
+    "consumer_secret": ""
+  },
+  "user": {
+    "access_token":  "",
+    "access_secret": ""
+  },
+  "stalk": {
+    "handle": "usertostalk"
+  }
+}
