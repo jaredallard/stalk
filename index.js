@@ -98,7 +98,7 @@ async.waterfall([
       if(err) return error(err);
 
       log('last_id:', last_id);
-      if(count !== 1200) {
+      if(count < 1200) {
         return loop(last_id, it);
       }
 
