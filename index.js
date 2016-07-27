@@ -128,15 +128,15 @@ async.waterfall([
     stream.on('delete', (tweet) => {
       tweet = tweet.delete.status;
 
+      redis.markDeleted(tweet.id_str, (err) => {
+        console.log('DELETEION EVENT ERROR: ', err);
+      })
+
       redis.getTweet(tweet.id_str, (err, tweet) => {
         if(err || tweet === null) {
           log(config.stalk.handle, 'deleted a tweet we don\'t have archived.')
           return false;
         }
-
-        redis.markDeleted(tweet.id_str, (err) => {
-          console.log('DELETEION EVENT ERROR: ', err);
-        })
 
         log(config.stalk.handle, 'deleted', "'"+tweet.text+"'");
         events.emit('delete', tweet);

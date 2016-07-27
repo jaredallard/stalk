@@ -53,35 +53,22 @@ module.exports = class AbstractedRedis {
   }
 
   getTweet(id, cb) {
-    this.redis.get(id, (err, stweet) => {
-      if(err) return cb(err);
-
-      let tweet;
-      try {
-        tweet = JSON.parse(stweet);
-      } catch(e) {
-        return cb(e);
-      }
-
+    let pipe = this.redis.pipeline();
+    pipe.hgetall('tweets:'+id);
+    pipe.exec((err, tweetcontainer) => {
+      let tweet = tweetcontainer[0][1];
+      console.log('hash store:', tweet);
       return cb(false, tweet);
     });
   }
 
-  addTweet(tweet) {
-    if(typeof tweet !== 'object') return false;
-    if(tweet.deleted === undefined) tweet.deleted = false;
-
-    let stweet;
-    try {
-      stweet = JSON.stringify(tweet);
-    } catch(e) {
-      log('failed to parse tweet:', id);
-      return false;
+  addTweet(tweet, cb) {
+    if(!cb) {
+      cb = (err) => {
+        if(err) return console.log(err);
+      }
     }
-
-    let id = tweet.id_str;
-
-    this.redis.set(id, stweet);
+    return this.addTweets([tweet], cb)
   }
 
   addTweets(tweets, cb) {
@@ -102,7 +89,7 @@ module.exports = class AbstractedRedis {
 
       let id = tweet.id_str;
       pipe.hmset("tweets:"+id,
-        "text", tweet.text,
+        "text", ftweet.text,
         "state", ftweet.state,
         "date", ftweet.date,
         "id", ftweet.id
@@ -117,17 +104,34 @@ module.exports = class AbstractedRedis {
   }
 
   markDeleted(id, cb) {
-    this.redis.hgetall('tweets:'+id, (err, tweet) => {
+    console.log('fetch deleted:', id);
+
+    let hgetall = this.redis.pipeline();
+    hgetall.hgetall('tweets:'+id);
+    hgetall.exec((err, tweetcontainer) => {
       if(err) return cb(err);
 
+      let tweet = tweetcontainer[0][1];
+
+      if(!tweet.text) return cb(true);
+
+      console.log(tweetcontainer);
       console.log('hash set:', tweet);
 
-      this.redis.hmset("tweets:"+id,
+      let pipe = this.redis.pipeline();
+
+      pipe.hmset("tweets:"+id,
         "text", tweet.text,
         "state", 'deleted',
         "date", tweet.date,
         "id", tweet.id
       );
+
+      pipe.exec(err => {
+        if(err) return cb(err);;
+
+        log('finished executing pipeline')
+      })
     })
   }
 }
