@@ -20,8 +20,6 @@ module.exports = class AbstractedRedis {
   }
 
   getTweets(cb) {
-    console.log(this.redis.get)
-    console.log(this.redis.mget);
     let pipe   = this.redis.pipeline();
     let stream = this.redis.scanStream();
     stream.on('data', (resultKeys) => {
@@ -119,19 +117,17 @@ module.exports = class AbstractedRedis {
   }
 
   markDeleted(id, cb) {
-    this.redis.get(id, (err, stweet) => {
+    this.redis.hgetall('tweets:'+id, (err, tweet) => {
       if(err) return cb(err);
 
-      let tweet;
-      try {
-        tweet = JSON.parse(stweet);
-      } catch(e) {
-        return cb(e);
-      }
+      console.log('hash set:', tweet);
 
-      tweet.state = 'deleted';
-
-      this.redis.set(id, JSON.stringify(tweet));
+      this.redis.hmset("tweets:"+id,
+        "text", tweet.text,
+        "state", 'deleted',
+        "date", tweet.date,
+        "id", tweet.id
+      );
     })
   }
 }
