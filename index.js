@@ -94,13 +94,21 @@ async.waterfall([
       })
     }
 
+    let beforeId = null;
     let it = (err, last_id) => {
       if(err) return error(err);
 
-      log('last_id:', last_id);
-      if(count < 1200) {
-        return loop(last_id, it);
+      if(beforeId !== last_id) {
+        // defaults
+        if(!beforeId) beforeId = last_id;
+
+        log('last_id:', last_id);
+        if(count < 1200) {
+          return loop(last_id, it);
+        }
       }
+
+      log(beforeId, last_id)
 
       log('inserted', count, 'total tweets into redis db.');
       return next();
@@ -157,6 +165,8 @@ async.waterfall([
   // load addons
   (next) => {
     let http = require('./express.js')(config, events, user, stlk);
+
+    return next()
   }
 ], err => {
   if(err) error(err);
